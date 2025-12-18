@@ -91,7 +91,34 @@ find "$OUTPUT_DIR" -type f -name "*.html" ! -name "index*.html" \
 
     echo "📂 Generating index for $dir"
 
-    mapfile -t files < <(find "$dir" -maxdepth 1 -type f -name "*.html" ! -name "index*.html" | sort)
+    # Find all HTML files and sort by date from markdown files (newest first)
+    declare -A file_dates
+    while IFS= read -r html_file; do
+        # Convert HTML file path back to markdown file path
+        html_rel_path="${html_file#$OUTPUT_DIR/}"
+        md_file="$INPUT_DIR/${html_rel_path%.html}.md"
+        
+        # Extract date from YAML frontmatter (date: YYYY-MM-DD or created: YYYY-MM-DD)
+        if [ -f "$md_file" ]; then
+            file_date=$(grep -oP '^(date|created):\s*\K.*' "$md_file" | head -n1)
+            # If no date found, use file modification time as fallback
+            if [ -z "$file_date" ]; then
+                file_date=$(date -r "$md_file" "+%Y-%m-%d")
+            fi
+        else
+            # Fallback to HTML file modification time
+            file_date=$(date -r "$html_file" "+%Y-%m-%d")
+        fi
+        file_dates["$html_file"]="$file_date"
+    done < <(find "$dir" -maxdepth 1 -type f -name "*.html" ! -name "index*.html")
+    
+    # Sort files by date descending (newest first)
+    mapfile -t files < <(
+        for html_file in "${!file_dates[@]}"; do
+            echo "${file_dates[$html_file]} $html_file"
+        done | sort -r | cut -d' ' -f2-
+    )
+    
     total_files=${#files[@]}
     total_pages=$(( (total_files + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE ))
 
