@@ -123,3 +123,5 @@ So instead of having dist folder into /home/user/blog/dist make a symbolic link 
 rm -Rf /home/user/blog/dist
 ln -s /var/www/html/blog /home/user/blog/dist
 ```
+
+This way the files would go directly into the correct directory.
