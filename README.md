@@ -1,8 +1,8 @@
 # SWBG - Static Weblog Generator
 
-This is a static weblog generator which would create a simple static blog site from markdown files.
-
-The project consists of few bash scripts which would generate static html files from markdown files.
+This is a static weblog generator which would create a simple static blog site from markdown files. The project consists 
+of few bash scripts which would generate static html files from markdown files. It is a simple and lightweight solution
+for creating a blog without the need of a database or a complex CMS.
 
 ## How to install
 
@@ -97,3 +97,7 @@ To generate the static html files run the following command from the `swbg` fold
 ```
 
 This would generate the static html files in the `dist` folder of your project. along with a sitemap.xml file.
+
+## How to style the blog
+You could add your own CSS file in the `src/assets/css` folder and link it in the `index.html` and `page.html` templates.
+Alternatively this could use the parent's site CSS if the blog is part of a bigger site.
