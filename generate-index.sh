@@ -52,26 +52,41 @@ render_article() {
             excerpt_display=""
         fi
         
-        # Use a Python one-liner for safe string replacement
-        article_html=$(python3 -c "
+        # Use a Python script with proper escaping for safe string replacement
+        export TEMPLATE="$article_html"
+        export TITLE="$title"
+        export LINK="$(basename "$file_path")"
+        export FEATURED="$featured_img"
+        export FEATURED_STYLE="$featured_style"
+        export EXCERPT="$excerpt_display"
+        export YEAR="$current_year"
+        
+        article_html=$(python3 << 'PYTHON_EOF'
 import sys
-template = '''$article_html'''
-title = '''$title'''
-link = '''$(basename "$file_path")'''
-featured = '''$featured_img'''
-featured_style = '''$featured_style'''
-excerpt = '''$excerpt_display'''
-year = '''$current_year'''
+import os
+import html
 
-result = template.replace('\$title', title)
-result = result.replace('\$link', link)
-result = result.replace('\$featured', featured)
-result = result.replace('\$featured_style', featured_style)
-result = result.replace('\$excerpt', excerpt)
-result = result.replace('\$year', year)
+template = os.environ.get('TEMPLATE', '')
+title = os.environ.get('TITLE', '')
+link = os.environ.get('LINK', '')
+featured = os.environ.get('FEATURED', '')
+featured_style = os.environ.get('FEATURED_STYLE', '')
+excerpt = os.environ.get('EXCERPT', '')
+year = os.environ.get('YEAR', '')
+
+# Decode HTML entities in title (e.g., &amp; -> &)
+title = html.unescape(title)
+
+result = template.replace('{{title}}', title)
+result = result.replace('{{link}}', link)
+result = result.replace('{{featured}}', featured)
+result = result.replace('{{featured_style}}', featured_style)
+result = result.replace('{{excerpt}}', excerpt)
+result = result.replace('{{year}}', year)
 
 print(result, end='')
-")
+PYTHON_EOF
+)
         
         echo "$article_html"
     else
@@ -211,24 +226,24 @@ find "$OUTPUT_DIR" -type f -name "*.html" ! -name "index*.html" \
             cp "$INDEX_TEMPLATE" "$index_file"
             
             # Replace variables one by one using temporary files
-            sed -i "s/\$title/Articles - Page $page/g" "$index_file"
-            sed -i "s|\$CSS|$CSS|g" "$index_file"
-            sed -i "s/\$page/$page/g" "$index_file"
-            sed -i "s/\$year/$current_year/g" "$index_file"
+            sed -i "s/{{title}}/Articles - Page $page/g" "$index_file"
+            sed -i "s|{{CSS}}|$CSS|g" "$index_file"
+            sed -i "s/{{page}}/$page/g" "$index_file"
+            sed -i "s/{{year}}/$current_year/g" "$index_file"
             
             # Handle first_excerpt - escape special characters for sed
             if [ -n "$first_excerpt" ]; then
                 # Escape special characters for sed
                 escaped_excerpt=$(echo "$first_excerpt" | sed 's/[[\.*^$()+?{|]/\\&/g' | sed 's/&/\\&/g')
-                sed -i "s|\$first_excerpt|$escaped_excerpt|g" "$index_file"
+                sed -i "s|{{first_excerpt}}|$escaped_excerpt|g" "$index_file"
             else
-                sed -i "s/\$first_excerpt//g" "$index_file"
+                sed -i "s/{{first_excerpt}}//g" "$index_file"
             fi
             
             # Handle body content with temporary file to avoid sed special character issues
             echo "$content_body" > "${index_file}.body"
-            sed -i "/\$body/r ${index_file}.body" "$index_file"
-            sed -i "/\$body/d" "$index_file"
+            sed -i "/{{body}}/r ${index_file}.body" "$index_file"
+            sed -i "/{{body}}/d" "$index_file"
             rm -f "${index_file}.body"
         else
             # Fallback to simple HTML generation

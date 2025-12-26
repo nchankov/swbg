@@ -28,24 +28,64 @@ find "$INPUT_DIR" -type f -name "*.md" | while read -r file; do
     
     # Get current year for template replacement
     current_year=$(date +%Y)
+    current_date=$(date +%Y-%m-%d)
     
-    # Create temporary file with year replacements in content
+    # Create temporary file with year and date replacements in content
     temp_file="${file}.tmp"
-    sed "s/\\\$year/$current_year/g" "$file" > "$temp_file"
+    sed -e "s/{{year}}/$current_year/g" -e "s/{{date}}/$current_date/g" "$file" > "$temp_file"
     
     echo "📝 Converting: $file → $output_path (featured: $featured, year: $current_year)"
 
-    pandoc_cmd=(pandoc "$temp_file" -f markdown -t html -s -o "$output_path")
-    [ -f "$PAGE_TEMPLATE" ] && pandoc_cmd+=(--template="$PAGE_TEMPLATE")
-    [ -n "$CSS" ] && pandoc_cmd+=(-c "$CSS")
-    # Add current year as metadata
-    pandoc_cmd+=(--metadata year="$current_year")
-    # Only add featured metadata if it actually exists in the file
-    [ -n "$featured" ] && pandoc_cmd+=(--metadata featured="$featured")
+    # First, convert markdown to HTML without template
+    pandoc_cmd=(pandoc "$temp_file" -f markdown -t html -o "${output_path}.body")
     "${pandoc_cmd[@]}"
     
-    # Clean up temporary file
-    rm -f "$temp_file"
+    # Read the body content
+    body_content=$(cat "${output_path}.body")
+    
+    # Now apply the template manually if it exists
+    if [ -f "$PAGE_TEMPLATE" ]; then
+        cp "$PAGE_TEMPLATE" "$output_path"
+        
+        # Get the title from the markdown file
+        title=$(grep -oP '^title:\s*\K.*' "$file" | head -n1)
+        [ -z "$title" ] && title=$(basename "$file" .md)
+        
+        # Escape special characters for sed (& \ and |)
+        title_escaped=$(echo "$title" | sed 's/[&\|]/\\&/g')
+        css_escaped=$(echo "$CSS" | sed 's/[&\|]/\\&/g')
+        featured_escaped=$(echo "$featured" | sed 's/[&\|]/\\&/g')
+        
+        # Replace placeholders using sed with new {{}} syntax
+        sed -i "s|{{title}}|$title_escaped|g" "$output_path"
+        sed -i "s|{{css}}|$css_escaped|g" "$output_path"
+        sed -i "s|{{date}}|$(date +%Y-%m-%d)|g" "$output_path"
+        sed -i "s|{{year}}|$current_year|g" "$output_path"
+        
+        # Handle conditional featured image
+        if [ -n "$featured" ]; then
+            # Replace {{featured}} with actual path
+            sed -i "s|{{featured}}|$featured_escaped|g" "$output_path"
+            # Remove @if/@endif markers
+            sed -i '/@if(featured)/d' "$output_path"
+            sed -i '/@endif/d' "$output_path"
+        else
+            # Remove the entire @if(featured) block
+            sed -i '/@if(featured)/,/@endif/d' "$output_path"
+        fi
+        
+        # Insert body content
+        echo "$body_content" > "${output_path}.body.tmp"
+        sed -i "/{{body}}/r ${output_path}.body.tmp" "$output_path"
+        sed -i "/{{body}}/d" "$output_path"
+        rm -f "${output_path}.body.tmp"
+    else
+        # No template, just move the body to output
+        mv "${output_path}.body" "$output_path"
+    fi
+    
+    # Clean up temporary files
+    rm -f "$temp_file" "${output_path}.body"
 done
 
 echo "✅ Markdown conversion complete!"
