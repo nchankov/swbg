@@ -60,11 +60,13 @@ render_article() {
         export FEATURED_STYLE="$featured_style"
         export EXCERPT="$excerpt_display"
         export YEAR="$current_year"
+        export HAS_FEATURED="$([[ -n "$featured_img" ]] && echo "true" || echo "false")"
         
         article_html=$(python3 << 'PYTHON_EOF'
 import sys
 import os
 import html
+import re
 
 template = os.environ.get('TEMPLATE', '')
 title = os.environ.get('TITLE', '')
@@ -73,9 +75,19 @@ featured = os.environ.get('FEATURED', '')
 featured_style = os.environ.get('FEATURED_STYLE', '')
 excerpt = os.environ.get('EXCERPT', '')
 year = os.environ.get('YEAR', '')
+has_featured = os.environ.get('HAS_FEATURED', 'false')
 
 # Decode HTML entities in title (e.g., &amp; -> &)
 title = html.unescape(title)
+
+# Handle @if(featured)...@endif blocks
+if has_featured == 'true':
+    # Remove @if and @endif markers but keep content
+    template = re.sub(r'@if\(featured\)\s*', '', template)
+    template = re.sub(r'@endif\s*', '', template)
+else:
+    # Remove entire @if(featured)...@endif block including content
+    template = re.sub(r'@if\(featured\).*?@endif\s*', '', template, flags=re.DOTALL)
 
 result = template.replace('{{title}}', title)
 result = result.replace('{{link}}', link)
