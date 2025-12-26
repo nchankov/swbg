@@ -101,3 +101,25 @@ This would generate the static html files in the `dist` folder of your project. 
 ## How to style the blog
 You could add your own CSS file in the `src/assets/css` folder and link it in the `index.html` and `page.html` templates.
 Alternatively this could use the parent's site CSS if the blog is part of a bigger site.
+
+## .env file
+In the content folder you could ass a .env file (you can find an example in the `example-project` folder). There you can
+change the default positions of the template folders, how many articles per page in the posts list, location to create 
+the static html files.
+
+## Hint
+The dist directory could be a link to another location. For example:
+
+```bash
+/var/www/html - this is the main website
+/var/www/html/blog - this is the blog
+/home/user/blog - this is the blog source folder containing src, templates etc.
+```
+
+So instead of having dist folder into /home/user/blog/dist make a symbolic link from /var/www/html/blog to 
+/home/user/blog/dist e.g.
+
+```bash
+rm -Rf /home/user/blog/dist
+ln -s /var/www/html/blog /home/user/blog/dist
+```
